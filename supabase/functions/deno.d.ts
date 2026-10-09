@@ -8,25 +8,26 @@ declare namespace Deno {
     handler: (req: Request) => Response | Promise<Response>,
     options?: { port?: number }
   ): void;
+  function test(name: string, fn: () => void | Promise<void>): void;
 }
 
 declare module "@supabase/supabase-js" {
-  type QueryBuilder = {
+  type Result = { data: unknown; error: unknown };
+  type QueryBuilder = PromiseLike<Result> & {
+    select(cols?: string): QueryBuilder;
+    insert(data: object): QueryBuilder;
+    upsert(data: object, opts?: object): QueryBuilder;
+    update(data: object): QueryBuilder;
     eq(col: string, val: unknown): QueryBuilder;
     not(col: string, op: string, val: unknown): QueryBuilder;
-    single(): Promise<{ data: unknown; error: unknown }>;
-    then<T>(onfulfilled?: (value: { data: unknown; error: unknown }) => T | PromiseLike<T>): Promise<T>;
+    order(col: string, opts?: object): QueryBuilder;
+    limit(n: number): QueryBuilder;
+    range(from: number, to: number): QueryBuilder;
+    single(): Promise<Result>;
+    maybeSingle(): Promise<Result>;
   };
   export interface SupabaseClient {
-    from(table: string): {
-      insert(data: object): { select(col: string): { single(): Promise<{ data: unknown; error: unknown }> } };
-      upsert(data: object, opts?: object): Promise<{ data: unknown; error: unknown }>;
-      update(data: object): { eq(col: string, val: unknown): Promise<{ error: unknown }> };
-      select(cols: string): {
-        eq(col: string, val: unknown): QueryBuilder;
-        order(col: string, opts?: object): { limit(n: number): { single(): Promise<{ data: unknown; error: unknown }> } };
-      };
-    };
+    from(table: string): QueryBuilder;
     rpc(fn: string, params?: object): Promise<{ data: unknown; error: unknown }>;
   }
   export function createClient(

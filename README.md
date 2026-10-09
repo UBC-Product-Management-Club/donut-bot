@@ -114,6 +114,10 @@ Each round (`create-pairs`, logic in [`_shared/matching.ts`](supabase/functions/
 
 This guarantees no repeats whenever a repeat-free pairing exists, and when repeats are unavoidable (small groups, many rounds) it picks the oldest ones instead of back-to-back repeats.
 
+## Home tab banner
+
+The banner at the top of the Home tab is `docs/home-banner.jpg`, served from this public repo's `main` branch. To change it, replace that file with a ~4.5:1 image (1812x400 works well) and push to `main`.
+
 ## Optional: Avoid List
 
 To prevent specific users from being paired:

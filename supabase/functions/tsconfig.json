@@ -11,7 +11,8 @@
     "paths": {
       "@shared": ["./_shared/mod.ts"],
       "@shared/handler": ["./_shared/handler.ts"],
-      "@shared/messages": ["./_shared/messages.ts"]
+      "@shared/messages": ["./_shared/messages.ts"],
+      "@shared/matching": ["./_shared/matching.ts"]
     }
   },
   "include": ["**/*.ts"],

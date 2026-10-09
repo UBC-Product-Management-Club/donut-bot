@@ -101,65 +101,84 @@ export function buildSummaryText(roundDate: string, counts: SummaryCounts): stri
 // app home tab (per-user preferences)
 
 export const LOCATIONS: { value: Location; label: string }[] = [
-  { value: "vancouver", label: "Vancouver" },
-  { value: "toronto", label: "Toronto" },
-  { value: "virtual", label: "Virtual" },
+  { value: "vancouver", label: "🏔️ Vancouver" },
+  { value: "toronto", label: "🍁 Toronto" },
+  { value: "virtual", label: "💻 Virtual" },
 ];
 
 export const DEFAULT_PREFERENCES: UserPreferences = { opted_in: true, location: "vancouver" };
 
+/** 906x200 banner (@2x), served from the public repo's main branch. */
+export const HOME_BANNER_URL =
+  "https://raw.githubusercontent.com/UBC-Product-Management-Club/donut-bot/main/docs/home-banner.jpg";
+
+/** Where people go for help. Plain text; swap for `<#CHANNEL_ID>` to make it a clickable link. */
+const HELP_CHANNEL = "#tech";
+
 function locationOption(loc: { value: Location; label: string }) {
   return { text: { type: "plain_text", text: loc.label, emoji: true }, value: loc.value };
+}
+
+/** Bold title on the first line, description below, optional control on the right. */
+function homeSection(title: string, body: string, accessory?: Record<string, unknown>) {
+  return {
+    type: "section",
+    text: { type: "mrkdwn", text: `*${title}*\n${body}` },
+    ...(accessory ? { accessory } : {}),
+  };
 }
 
 export function buildHomeBlocks(
   prefs: UserPreferences,
   roundChannelId: string | null
 ): Record<string, unknown>[] {
-  const status = prefs.opted_in
-    ? "🟢 *Opted in*: you'll be included in the next round."
-    : "🔴 *Opted out*: you won't be paired until you opt back in.";
-
-  const toggle = prefs.opted_in
-    ? { text: "Opt out", action_id: ACTION_OPT_OUT, style: "danger" }
-    : { text: "Opt in", action_id: ACTION_OPT_IN, style: "primary" };
-
+  const channel = roundChannelId ? `<#${roundChannelId}>` : "the donut channel";
   const currentLocation = LOCATIONS.find((l) => l.value === prefs.location) ?? LOCATIONS[0];
 
-  const footer = roundChannelId
-    ? `Changes apply from the next pairing round. You also need to be in <#${roundChannelId}> to be paired.`
-    : "Changes apply from the next pairing round.";
+  const status = prefs.opted_in
+    ? homeSection("🟢  You're in!", "You'll be paired up in the next round.", {
+      type: "button",
+      action_id: ACTION_OPT_OUT,
+      text: { type: "plain_text", text: "⏸️  Opt out", emoji: true },
+    })
+    : homeSection("🔴  You're sitting out", "You won't be paired until you opt back in.", {
+      type: "button",
+      action_id: ACTION_OPT_IN,
+      style: "primary",
+      text: { type: "plain_text", text: "▶️  Opt in", emoji: true },
+    });
 
   return [
-    { type: "header", text: { type: "plain_text", text: "🍩 Your donut settings", emoji: true } },
     {
-      type: "section",
-      block_id: "home_opt_in",
-      text: { type: "mrkdwn", text: `*Donut chats*\n${status}` },
-      accessory: {
-        type: "button",
-        action_id: toggle.action_id,
-        style: toggle.style,
-        text: { type: "plain_text", text: toggle.text, emoji: true },
-      },
+      type: "image",
+      image_url: HOME_BANNER_URL,
+      alt_text: "PMC Donut Bot banner: two PMC mascots holding up a giant donut",
     },
+    homeSection(
+      "🍩  What's a donut?",
+      "A casual 1:1 chat with another PMC member, over coffee, a walk, or a call. " +
+        "Each round you're paired with someone new, so it's an easy way to get to know " +
+        "people across the club beyond meetings and events.",
+    ),
     { type: "divider" },
-    {
-      type: "section",
-      block_id: "home_location",
-      text: {
-        type: "mrkdwn",
-        text: "*📍 Location*\nYou'll only be paired with people in the same location.",
-      },
-      accessory: {
-        type: "static_select",
-        action_id: ACTION_SET_LOCATION,
-        placeholder: { type: "plain_text", text: "Choose a location" },
-        options: LOCATIONS.map(locationOption),
-        initial_option: locationOption(currentLocation),
-      },
-    },
-    { type: "context", elements: [{ type: "mrkdwn", text: footer }] },
+    status,
+    { type: "divider" },
+    homeSection("📍  Location", "You'll only be paired with people in the same location.", {
+      type: "static_select",
+      action_id: ACTION_SET_LOCATION,
+      placeholder: { type: "plain_text", text: "Choose a location" },
+      options: LOCATIONS.map(locationOption),
+      initial_option: locationOption(currentLocation),
+    }),
+    { type: "divider" },
+    homeSection(
+      "📋  How it works",
+      `• Be in ${channel} and opted in to get paired\n` +
+        "• You'll be matched with someone in your location, prioritising people you haven't met\n" +
+        "• Changes apply from the next round",
+    ),
+    { type: "divider" },
+    homeSection("💬  Questions or bugs?", `Reach out in ${HELP_CHANNEL}.`),
   ];
 }
 

@@ -149,7 +149,7 @@ async function handleHomeAction(
 
   // insert so people can set preferences before their first round;
   // create-pairs re-syncs is_active from channel membership before matching
-  if (!error && (updated ?? []).length === 0) {
+  if (!error && ((updated ?? []) as unknown[]).length === 0) {
     const { error: insertError } = await supabase.from("users").insert({
       slack_user_id: user.id,
       display_name: user.name || user.username || user.id,
@@ -178,5 +178,11 @@ async function renderHome(userId: string): Promise<void> {
   const rawChannel = (configRow as ConfigValue | null)?.value;
   const roundChannelId = rawChannel ? String(rawChannel).replace(/^"|"$/g, "") : null;
 
-  await publishHomeView(slackToken, userId, buildHomeBlocks(prefs, roundChannelId));
+  const blocks = buildHomeBlocks(prefs, roundChannelId);
+  const ok = await publishHomeView(slackToken, userId, blocks);
+
+  // Slack rejects the whole view if it can't fetch an image, so retry without the banner
+  if (!ok) {
+    await publishHomeView(slackToken, userId, blocks.filter((b) => b.type !== "image"));
+  }
 }

@@ -3,9 +3,9 @@
  * Called by pg_cron schedule.
  */
 
-import { supabase, openMPIM, postMessage, getChannelMembers, getUserInfo } from "@shared";
+import { supabase, openMPIM, postMessage, getChannelMembers, getUserInfo, getAppHomeLink } from "@shared";
 import { serve, jsonResponse, errorResponse, requireEnv } from "@shared/handler";
-import { MATCH_INTRO } from "@shared/messages";
+import { MATCH_INTRO, buildMatchIntroBlocks } from "@shared/messages";
 import { computeMatches, type PastMatch } from "@shared/matching";
 import type { RoundIdResult, MatchIdResult, ConfigValue } from "@shared";
 
@@ -144,6 +144,8 @@ serve(async () => {
 
   const roundId = (roundData as RoundIdResult).id;
 
+  const homeLink = await getAppHomeLink(slackToken);
+
   for (const participantIds of groups) {
     const { data: matchData, error: matchInsertError } = await supabase
       .from("matches")
@@ -165,7 +167,7 @@ serve(async () => {
     }
 
     await supabase.from("matches").update({ slack_channel_id: mpimId }).eq("id", matchId);
-    await postMessage(slackToken, mpimId, MATCH_INTRO);
+    await postMessage(slackToken, mpimId, MATCH_INTRO, buildMatchIntroBlocks(participantIds, homeLink));
   }
 
   return jsonResponse({ message: "Matches created", round_id: roundId, groups_count: groups.length, unmatched });

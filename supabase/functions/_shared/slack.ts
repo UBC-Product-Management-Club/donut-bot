@@ -206,3 +206,28 @@ export async function publishHomeView(
   if (!data.ok) console.error("views.publish error:", data.error);
   return data.ok === true;
 }
+
+/**
+ * Deep link that opens this app's Home tab, e.g. for "change your settings" links.
+ * @see https://docs.slack.dev/interactivity/deep-linking
+ * @returns null if the IDs can't be looked up (callers fall back to plain text)
+ */
+export async function getAppHomeLink(token: string): Promise<string | null> {
+  const headers = { Authorization: `Bearer ${token}` };
+
+  const authRes = await fetch(`${SLACK_API_BASE}/auth.test`, { method: "POST", headers });
+  const auth = authRes.ok ? await authRes.json() : null;
+  if (!auth?.ok || !auth.team_id || !auth.bot_id) {
+    console.error("auth.test failed:", auth?.error);
+    return null;
+  }
+
+  const botRes = await fetch(`${SLACK_API_BASE}/bots.info?bot=${auth.bot_id}`, { headers });
+  const bot = botRes.ok ? await botRes.json() : null;
+  if (!bot?.ok || !bot.bot?.app_id) {
+    console.error("bots.info failed:", bot?.error);
+    return null;
+  }
+
+  return `slack://app?team=${auth.team_id}&id=${bot.bot.app_id}&tab=home`;
+}

@@ -10,8 +10,38 @@
 
 import type { Location, UserPreferences } from "./types.ts";
 
-export const MATCH_INTRO =
-  "🍩 *You have been matched for a donut!* Pick a time soon and make it happen :sparkles:";
+/** Notification/fallback text; the full message is buildMatchIntroBlocks. */
+export const MATCH_INTRO = "🍩 You've been matched for a donut! Find a time to meet up ☕";
+
+export function buildMatchIntroBlocks(
+  participantIds: string[],
+  homeLink: string | null
+): Record<string, unknown>[] {
+  const mentions = participantIds.map((id) => `<@${id}>`);
+  const names = mentions.length > 1
+    ? `${mentions.slice(0, -1).join(", ")} and ${mentions[mentions.length - 1]}`
+    : mentions[0];
+  const settings = homeLink ? `<${homeLink}|Home tab>` : "*Home* tab of Donut Bot";
+
+  return [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text:
+          `🍩 *Hey ${names}, you've been matched for a donut!*\n\n` +
+          "Grab a coffee, go for a walk, or hop on a call, whatever works for you. " +
+          "Reply here to find a time, and have fun getting to know each other! ☕✨",
+      },
+    },
+    {
+      type: "context",
+      elements: [
+        { type: "mrkdwn", text: `_Want to pause donuts or change your location? Update your settings in the ${settings}._` },
+      ],
+    },
+  ];
+}
 
 export const MIDPOINT_REMINDER_FALLBACK =
   "⏰ Midpoint check-in: have you scheduled your donut yet?";

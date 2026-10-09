@@ -24,5 +24,6 @@ export {
   getChannelMembers,
   getUserInfo,
   publishHomeView,
+  getAppHomeLink,
 } from "./slack.ts";
 export type { SlackUserInfo } from "./slack.ts";

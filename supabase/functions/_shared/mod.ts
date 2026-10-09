@@ -1,5 +1,6 @@
 export type {
   MetStatus,
+  Location,
   User,
   Round,
   RoundIdResult,
@@ -11,7 +12,7 @@ export type {
   Config,
   ConfigValue,
   UserAvoidList,
-  ComputeMatchGroup,
+  UserPreferences,
 } from "./types.ts";
 
 export { supabase } from "./supabase.ts";
@@ -22,5 +23,6 @@ export {
   postMessage,
   getChannelMembers,
   getUserInfo,
+  publishHomeView,
 } from "./slack.ts";
 export type { SlackUserInfo } from "./slack.ts";

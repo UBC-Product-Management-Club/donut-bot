@@ -4,11 +4,14 @@
  */
 
 export type MetStatus = "pending" | "yes" | "no";
+export type Location = "vancouver" | "toronto" | "virtual";
 
 export interface User {
   slack_user_id: string;
   display_name: string;
   is_active: boolean;
+  opted_in: boolean;
+  location: Location;
   created_at: string;
   updated_at: string;
 }
@@ -50,12 +53,7 @@ export type MatchIdResult = Pick<Match, "id">;
 export type RoundWithDate = Pick<Round, "id" | "round_date">;
 export type ConfigValue = Pick<Config, "value">;
 export type MatchMetStatus = Pick<Match, "met_status">;
-
-// RPC return types
-export interface ComputeMatchGroup {
-  user_ids: string[];
-  match_type: string;
-}
+export type UserPreferences = Pick<User, "opted_in" | "location">;
 
 // Insert payload
 export interface MatchInsert {

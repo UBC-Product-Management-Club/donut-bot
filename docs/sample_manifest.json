@@ -9,13 +9,14 @@
     "background_color": "#4A154B"
   },
   "features": {
+    "app_home": {
+      "home_tab_enabled": true,
+      "messages_tab_enabled": false,
+      "messages_tab_read_only_enabled": false
+    },
     "bot_user": {
       "display_name": "Donut Bot",
       "always_online": true
-    },
-    "interactivity": {
-      "is_enabled": true,
-      "request_url": "https://YOUR_PROJECT_REF.supabase.co/functions/v1/slack-events"
     }
   },
   "oauth_config": {
@@ -27,6 +28,18 @@
         "channels:read",
         "groups:read"
       ]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "request_url": "https://YOUR_PROJECT_REF.supabase.co/functions/v1/slack-events",
+      "bot_events": [
+        "app_home_opened"
+      ]
+    },
+    "interactivity": {
+      "is_enabled": true,
+      "request_url": "https://YOUR_PROJECT_REF.supabase.co/functions/v1/slack-events"
     }
   }
 }

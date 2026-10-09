@@ -5,7 +5,10 @@
  * 2. Meet reminder message
  * 3. Did you meet? message
  * 4. Weekly summary text
+ * 5. App Home tab (opt in/out + location)
  */
+
+import type { Location, UserPreferences } from "./types.ts";
 
 export const MATCH_INTRO =
   "🍩 *You have been matched for a donut!* Pick a time soon and make it happen :sparkles:";
@@ -95,10 +98,78 @@ export function buildSummaryText(roundDate: string, counts: SummaryCounts): stri
   ].join("\n");
 }
 
+// app home tab (per-user preferences)
+
+export const LOCATIONS: { value: Location; label: string }[] = [
+  { value: "vancouver", label: "Vancouver" },
+  { value: "toronto", label: "Toronto" },
+  { value: "virtual", label: "Virtual" },
+];
+
+export const DEFAULT_PREFERENCES: UserPreferences = { opted_in: true, location: "vancouver" };
+
+function locationOption(loc: { value: Location; label: string }) {
+  return { text: { type: "plain_text", text: loc.label, emoji: true }, value: loc.value };
+}
+
+export function buildHomeBlocks(
+  prefs: UserPreferences,
+  roundChannelId: string | null
+): Record<string, unknown>[] {
+  const status = prefs.opted_in
+    ? "🟢 *Opted in*: you'll be included in the next round."
+    : "🔴 *Opted out*: you won't be paired until you opt back in.";
+
+  const toggle = prefs.opted_in
+    ? { text: "Opt out", action_id: ACTION_OPT_OUT, style: "danger" }
+    : { text: "Opt in", action_id: ACTION_OPT_IN, style: "primary" };
+
+  const currentLocation = LOCATIONS.find((l) => l.value === prefs.location) ?? LOCATIONS[0];
+
+  const footer = roundChannelId
+    ? `Changes apply from the next pairing round. You also need to be in <#${roundChannelId}> to be paired.`
+    : "Changes apply from the next pairing round.";
+
+  return [
+    { type: "header", text: { type: "plain_text", text: "🍩 Your donut settings", emoji: true } },
+    {
+      type: "section",
+      block_id: "home_opt_in",
+      text: { type: "mrkdwn", text: `*Donut chats*\n${status}` },
+      accessory: {
+        type: "button",
+        action_id: toggle.action_id,
+        style: toggle.style,
+        text: { type: "plain_text", text: toggle.text, emoji: true },
+      },
+    },
+    { type: "divider" },
+    {
+      type: "section",
+      block_id: "home_location",
+      text: {
+        type: "mrkdwn",
+        text: "*📍 Location*\nYou'll only be paired with people in the same location.",
+      },
+      accessory: {
+        type: "static_select",
+        action_id: ACTION_SET_LOCATION,
+        placeholder: { type: "plain_text", text: "Choose a location" },
+        options: LOCATIONS.map(locationOption),
+        initial_option: locationOption(currentLocation),
+      },
+    },
+    { type: "context", elements: [{ type: "mrkdwn", text: footer }] },
+  ];
+}
+
 // action ids & responses
 
 export const ACTION_DID_YOU_MEET_YES = "did_you_meet_yes";
 export const ACTION_DID_YOU_MEET_NO = "did_you_meet_no";
+export const ACTION_OPT_IN = "home_opt_in";
+export const ACTION_OPT_OUT = "home_opt_out";
+export const ACTION_SET_LOCATION = "home_set_location";
 
 export const RESPONSE_YES = "Amazing! 🎉 Love to hear it.";
 export const RESPONSE_NO = "No worries - there is always next round 💪";

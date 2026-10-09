@@ -6,7 +6,8 @@
 import { supabase, openMPIM, postMessage, getChannelMembers, getUserInfo } from "@shared";
 import { serve, jsonResponse, errorResponse, requireEnv } from "@shared/handler";
 import { MATCH_INTRO } from "@shared/messages";
-import type { RoundIdResult, MatchIdResult, ComputeMatchGroup, ConfigValue } from "@shared";
+import { computeMatches, type PastMatch } from "@shared/matching";
+import type { RoundIdResult, MatchIdResult, ConfigValue } from "@shared";
 
 serve(async () => {
   const slackToken = requireEnv("SLACK_BOT_TOKEN");
@@ -99,6 +100,38 @@ serve(async () => {
     }
   }
 
+  /**
+   * Only opted-in channel members are eligible, and pairs never cross locations.
+   * Within each location, picks the pairing with the fewest/oldest repeats (see matching.ts).
+   */
+  const { data: candidateRows, error: candidatesError } = await supabase
+    .from("users")
+    .select("slack_user_id, location")
+    .eq("is_active", true)
+    .eq("opted_in", true);
+
+  if (candidatesError) {
+    return errorResponse("Failed to fetch candidates", 500, candidatesError);
+  }
+
+  const history = await fetchAllMatchHistory();
+  if (history instanceof Response) return history;
+
+  const { data: avoidRows } = await supabase.from("user_avoid_list").select("user_id, avoid_user_id");
+
+  const candidates = ((candidateRows ?? []) as { slack_user_id: string; location: string }[])
+    .map((u) => ({ id: u.slack_user_id, location: u.location }));
+  const avoidPairs = ((avoidRows ?? []) as { user_id: string; avoid_user_id: string }[])
+    .map((a): [string, string] => [a.user_id, a.avoid_user_id]);
+
+  const { groups, unmatched } = computeMatches(candidates, history, avoidPairs);
+  if (unmatched.length > 0) console.log("Unmatched this round (no one else eligible):", unmatched);
+
+  // only record a round once there's something to send, so a failed run doesn't block next week
+  if (groups.length === 0) {
+    return jsonResponse({ message: "No matches this round", unmatched });
+  }
+
   const { data: roundData, error: roundError } = await supabase
     .from("rounds")
     .insert({ status: "active" })
@@ -111,28 +144,7 @@ serve(async () => {
 
   const roundId = (roundData as RoundIdResult).id;
 
-  /**
-  * Calls a procedure to compute matches and store them under /matches
-  * Greedily matches pairs based on last matched date and avoids users in the ban list
-  */
-  const { data: matchesData, error: matchesError } = await supabase.rpc(
-    "compute_coffee_chat_matches",
-    { p_round_id: roundId }
-  );
-
-  if (matchesError) {
-    return errorResponse("Matching failed", 500, matchesError);
-  }
-
-  const groups = (matchesData ?? []) as ComputeMatchGroup[];
-  if (groups.length === 0) {
-    return jsonResponse({ message: "No matches this round", round_id: roundId });
-  }
-
-  for (const group of groups) {
-    const participantIds = group.user_ids;
-    if (!participantIds || participantIds.length < 2) continue;
-
+  for (const participantIds of groups) {
     const { data: matchData, error: matchInsertError } = await supabase
       .from("matches")
       .insert({ round_id: roundId, participant_ids: participantIds, met_status: "pending" })
@@ -156,8 +168,25 @@ serve(async () => {
     await postMessage(slackToken, mpimId, MATCH_INTRO);
   }
 
-  return jsonResponse({ message: "Matches created", round_id: roundId, groups_count: groups.length });
+  return jsonResponse({ message: "Matches created", round_id: roundId, groups_count: groups.length, unmatched });
 });
+
+/** All past matches, paged since PostgREST caps each response (default 1000 rows). */
+async function fetchAllMatchHistory(): Promise<PastMatch[] | Response> {
+  const PAGE = 1000;
+  const history: PastMatch[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from("matches")
+      .select("participant_ids, matched_at")
+      .order("matched_at", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) return errorResponse("Failed to fetch match history", 500, error);
+    const rows = (data ?? []) as PastMatch[];
+    history.push(...rows);
+    if (rows.length < PAGE) return history;
+  }
+}
 
 function parseIntervalDays(value: unknown): number {
   if (typeof value === "number" && Number.isFinite(value) && value >= 1) {

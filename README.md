@@ -3,6 +3,8 @@ Slack bot that facilitates weekly donuts in your workspace for unlimited members
 
 Members of the specified channel are automatically synced each round; members can join the channel to be eligible and leave to opt out.
 
+Members can also manage their own settings from the bot's **Home** tab in Slack: opt in 🟢 / opt out 🔴 of pairings, and pick a location (Vancouver by default, Toronto, or Virtual). Right before each round, only opted-in channel members are paired, and only with people in the same location.
+
 ## Used
 - Supabase: Edge Functions (Deno), PSQL, pg_cron
 - Slack web API
@@ -11,7 +13,9 @@ Members of the specified channel are automatically synced each round; members ca
 
 ### 1. Create Slack App
 
-Go to [api.slack.com/apps](https://api.slack.com/apps) > **Create New App** > **From a manifest**. Paste the contents of [`docs/sample_manifest.json`](docs/sample_manifest.json), replacing `YOUR_PROJECT_REF` with your Supabase project ref. This configures the required scopes (`chat:write`, `mpim:write`, `users:read`, `channels:read`, `groups:read`) and interactivity URL automatically.
+Go to [api.slack.com/apps](https://api.slack.com/apps) > **Create New App** > **From a manifest**. Paste the contents of [`docs/sample_manifest.json`](docs/sample_manifest.json), replacing `YOUR_PROJECT_REF` with your Supabase project ref. This configures the required scopes (`chat:write`, `mpim:write`, `users:read`, `channels:read`, `groups:read`) interactivity URL, Home tab, and `app_home_opened` event subscription automatically.
+
+> **Existing app?** Under **App Home**, enable the Home Tab. Under **Event Subscriptions**, enable events, set the Request URL to `https://YOUR_PROJECT_REF.supabase.co/functions/v1/slack-events`, and subscribe to the `app_home_opened` bot event. Reinstall if prompted.
 
 > **Private channels**: The bot must be invited to the channel (`/invite @Donut Bot`) to access its member list.
 
@@ -98,6 +102,18 @@ UPDATE config SET value = '30'::jsonb WHERE key = 'pairing_interval_days';
 
 Note that the cron job is fixed at `0 9 * * 1` (every Monday). `create_pairs` decides whether to actually write based on how many days have elapsed since the last round.
 
+## How matching works
+
+Each round (`create-pairs`, logic in [`_shared/matching.ts`](supabase/functions/_shared/matching.ts)):
+
+1. Sync channel members. Only people in the channel **and** opted in are eligible.
+2. Split eligible people by location; nobody is paired across locations.
+3. Within each location, score every possible pair by history: never met = 0, and each past meeting adds `1000 / (1 + weeks since)` (last week = 500, a month ago ≈ 190, a year ago ≈ 19). Avoid-list pairs are excluded.
+4. Find the pairing with the lowest total score across the whole location (maximum weight matching via Edmonds' blossom algorithm), pairing as many people as possible first.
+5. With an odd count, the leftover joins whichever pair they've met least recently, making a trio. Someone alone in their location sits out the round.
+
+This guarantees no repeats whenever a repeat-free pairing exists, and when repeats are unavoidable (small groups, many rounds) it picks the oldest ones instead of back-to-back repeats.
+
 ## Optional: Avoid List
 
 To prevent specific users from being paired:
@@ -112,7 +128,7 @@ supabase start
 supabase functions serve
 ```
 
-Lint by running `deno lint`.
+Lint by running `deno lint`, and run the matching tests with `deno test` (both from `supabase/functions`).
 
 Friendly reminder to keep the deploy and db actions up-to-date ie. if you are adding a new function.
 

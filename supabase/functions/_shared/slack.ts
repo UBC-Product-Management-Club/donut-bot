@@ -180,3 +180,29 @@ export async function getUserInfo(
     is_bot: user.is_bot === true || user.id === "USLACKBOT",
   };
 }
+
+/**
+ * Publish (or refresh) a user's App Home tab.
+ */
+export async function publishHomeView(
+  token: string,
+  userId: string,
+  blocks: Record<string, unknown>[]
+): Promise<boolean> {
+  const res = await fetch(`${SLACK_API_BASE}/views.publish`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ user_id: userId, view: { type: "home", blocks } }),
+  });
+
+  if (!res.ok) {
+    console.error("views.publish failed:", await res.text());
+    return false;
+  }
+  const data = await res.json();
+  if (!data.ok) console.error("views.publish error:", data.error);
+  return data.ok === true;
+}
